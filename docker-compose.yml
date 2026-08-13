@@ -1,0 +1,154 @@
+###############################################
+# Common Keys for all apps
+###############################################
+x-common-keys: &common-keys
+  restart: unless-stopped
+  logging:
+    driver: json-file
+  environment:
+    PUID: 1000
+    PGID: 1000
+    TZ: Asia/Kolkata
+  dns:
+    - 1.1.1.1
+    - 1.0.0.1
+
+services:
+  ###############################################
+  # GLUETUN - VPN Gateway (ProtonVPN Free)
+  ###############################################
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${WG_PRIVATE_KEY}
+      - SERVER_COUNTRIES=Netherlands
+      - FREE_ONLY=on
+      - TZ=Asia/Kolkata
+      - DOT=off
+      - DNS_ADDRESS=1.1.1.1
+      - HTTPPROXY=on
+      - HTTPPROXY_LISTENING_ADDRESS=:8888
+    ports:
+      - 8888:8888
+    volumes:
+      - ${BASE_DIR}/appdata/gluetun:/gluetun
+
+  ###############################################
+  # QBITTORRENT - now routed through Gluetun
+  ###############################################
+  qbittorrent:
+    <<: *common-keys
+    container_name: qbittorrent
+    image: ghcr.io/hotio/qbittorrent:latest
+    ports:
+      - 8080:8080
+      - 6881:6881
+      - 6881:6881/udp
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=6881
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${BASE_DIR}/appdata/qbittorrent:/config
+      - ${BASE_DIR}/data:/data
+
+  ###############################################
+  # RADARR - Movies
+  ###############################################
+  radarr:
+    <<: *common-keys
+    container_name: radarr
+    image: ghcr.io/hotio/radarr:latest
+    ports:
+      - 7878:7878
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${BASE_DIR}/appdata/radarr:/config
+      - ${BASE_DIR}/data:/data
+
+  ###############################################
+  # SONARR - TV Shows
+  ###############################################
+  sonarr:
+    <<: *common-keys
+    container_name: sonarr
+    image: ghcr.io/hotio/sonarr:latest
+    ports:
+      - 8989:8989
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${BASE_DIR}/appdata/sonarr:/config
+      - ${BASE_DIR}/data:/data
+
+  ###############################################
+  # LIDARR - Music
+  ###############################################
+  lidarr:
+    <<: *common-keys
+    container_name: lidarr
+    image: ghcr.io/hotio/lidarr:latest
+    ports:
+      - 8686:8686
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${BASE_DIR}/appdata/lidarr:/config
+      - ${BASE_DIR}/data:/data
+
+  ###############################################
+  # BAZARR - Subtitles
+  ###############################################
+  bazarr:
+    <<: *common-keys
+    container_name: bazarr
+    image: ghcr.io/hotio/bazarr:latest
+    ports:
+      - 6767:6767
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${BASE_DIR}/appdata/bazarr:/config
+      - ${BASE_DIR}/data/media:/data/media
+
+  ###############################################
+  # PROWLARR - Indexer Manager
+  ###############################################
+  prowlarr:
+    <<: *common-keys
+    container_name: prowlarr
+    image: ghcr.io/hotio/prowlarr:latest
+    ports:
+      - 9696:9696
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${BASE_DIR}/appdata/prowlarr:/config
+
+  ###############################################
+  # JELLYFIN - Media Server
+  ###############################################
+  jellyfin:
+    <<: *common-keys
+    container_name: jellyfin
+    image: ghcr.io/hotio/jellyfin:latest
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${BASE_DIR}/appdata/jellyfin:/config
+      - ${BASE_DIR}/data/media:/data/media:ro
+    ports:
+      - 8096:8096
+
+###############################################
+# ARR Stack Dedicated Network
+###############################################
+networks:
+  default:
+    name: arr_network

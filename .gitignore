@@ -1,0 +1,14 @@
+# Secrets — never commit your VPN key
+.env
+.env.*
+!.env.example
+
+# ProtonVPN WireGuard reference config (contains the private key)
+gluetun-server-*.conf
+
+# Runtime data — per-service config and your media library
+appdata/
+data/
+
+# Misc
+*.log
