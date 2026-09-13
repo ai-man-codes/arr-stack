@@ -10,6 +10,7 @@ A complete, self-hosted media automation stack running on Docker Compose:
 - **Lidarr** — music library automation
 - **Bazarr** — automatic subtitle management
 - **Jellyfin** — media streaming server (watch everything in your browser/any device)
+- **Seerr** — media request & discovery manager (users browse TMDB, request movies/TV, and requests flow to Radarr/Sonarr; works with Jellyfin, Plex and Emby)
 
 All services run on a dedicated Docker network (`arr_network`), share a single
 `/data` mount for instant hard links, and are configured to work together out of
@@ -33,6 +34,7 @@ the box.
    Host :8686 ───────► │  lidarr  ────┘              │
    Host :6767 ───────► │  bazarr                     │
    Host :8096 ───────► │  jellyfin                   │
+   Host :5055 ───────► │  seerr  ───► radarr/sonarr  │
                        └─────────────────────────────┘
 ```
 
@@ -69,7 +71,7 @@ arr-stack/
 ├── appdata/                            # per-service config (created at runtime)
 │   ├── qbittorrent/  ├── radarr/  ├── sonarr/
 │   ├── lidarr/       ├── bazarr/  ├── prowlarr/
-│   ├── jellyfin/     └── gluetun/
+│   ├── jellyfin/     ├── seerr/   └── gluetun/
 └── data/                               # downloads + media library
     ├── torrents/{movies,tv,music}
     └── media/{movies,tv,music}
@@ -82,7 +84,7 @@ arr-stack/
 - A Linux host (tested on Debian/Ubuntu) — any distro with Docker works; Windows/macOS can use Docker Desktop
 - Docker Engine **24+** and the **Compose plugin (v2)**
 - A **ProtonVPN account** (free tier is fine) to obtain a WireGuard key
-- Ports available on the host: `8080`, `6881/tcp+udp`, `7878`, `8989`, `8686`, `6767`, `9696`, `8096`, `8888`
+- Ports available on the host: `8080`, `6881/tcp+udp`, `7878`, `8989`, `8686`, `6767`, `9696`, `8096`, `5055`, `8888`
 
 ---
 
@@ -199,7 +201,7 @@ docker compose up -d
 docker compose ps
 ```
 
-You should see all 8 services with status `Up`. The first start pulls images
+You should see all 9 services with status `Up`. The first start pulls images
 and can take a few minutes.
 
 ### 7. Verify the VPN
@@ -230,6 +232,7 @@ The IP returned should be a ProtonVPN exit IP (Netherlands), not your own.
 | Lidarr      | `http://<host>:8686` | set username/password on first visit |
 | Bazarr      | `http://<host>:6767` | set username/password on first visit |
 | Jellyfin    | `http://<host>:8096` | create your first admin user |
+| Seerr       | `http://<host>:5055` | create local admin, then sign in with Jellyfin (needs Jellyfin admin API key) |
 
 **qBittorrent temporary password** — on first start a random password is
 generated and printed to the container logs:
@@ -314,6 +317,27 @@ Same pattern as Radarr with TV values:
 3. **Settings → Sonarr/Radarr:** add both apps (hosts `sonarr` / `radarr`, port `8989` / `7878`, paste API keys, **tick "Use SSL" off**).
 4. Go to the **Series/Movies** tabs and hit *Update* to scan your existing library.
 
+### Seerr (media request manager)
+
+1. Visit `http://<host>:5055` — create a **local admin account** (email + password).
+2. **Settings → Jellyfin:**
+   - Jellyfin Host: `jellyfin`, Port: `8096`, tick **Use SSL** off
+   - **External URL** (optional): `http://<host>:8096` — makes links open for other users
+   - **API Key:** copy it from Jellyfin → **Dashboard → API Keys → +**
+3. **Settings → Radarr:**
+   - Host: `radarr`, Port: `7878`, tick **Use SSL** off
+   - API Key: copy from Radarr → **Settings → General → Security → API Key**
+   - Base URL: empty, Default Quality Profile: e.g. *HD-1080p*, check **Automatically Scan** and **Enable Scan Notifications**
+4. **Settings → Sonarr:**
+   - Host: `sonarr`, Port: `8989`, tick **Use SSL** off
+   - API Key: copy from Sonarr → **Settings → General → Security → API Key**
+   - Quality Profile & Language Profile: e.g. *HD-1080p* / *English*
+   - **Automatically Scan** + **Enable Scan Notifications**: ticked
+5. Sign in with Jellyfin: on the **Settings → Jellyfin** page, once connected, you can enable "Use Jellyfin login" — users then authenticate with their Jellyfin accounts and see their Jellyfin libraries.
+
+> Seerr manages **movies & TV** only (Radarr/Sonarr). Music requests (Lidarr)
+> are not part of Seerr's scope.
+
 ### Jellyfin
 
 1. Create your admin account on first visit.
@@ -321,7 +345,8 @@ Same pattern as Radarr with TV values:
    - Movies → `/data/media/movies`
    - TV Shows → `/data/media/tv`
    - Music → `/data/media/music`
-3. Jellyfin scans the library automatically; new arrivals appear as soon as Radarr/Sonarr/Lidarr finish importing.
+3. Copy the **API Key** (Dashboard → API Keys → +) — Seerr needs it (step above).
+4. Jellyfin scans the library automatically; new arrivals appear as soon as Radarr/Sonarr/Lidarr finish importing.
 
 ---
 
@@ -337,6 +362,7 @@ Same pattern as Radarr with TV values:
 | `8686` | Lidarr | |
 | `6767` | Bazarr | |
 | `8096` | Jellyfin | |
+| `5055` | Seerr | media request manager |
 | `8888` | gluetun HTTP proxy | only reachable on localhost — useful for tools that need the VPN exit |
 
 All ports are published on `0.0.0.0` — if the host is directly exposed to the
