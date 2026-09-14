@@ -39,7 +39,7 @@ services:
       - ${BASE_DIR}/appdata/gluetun:/gluetun
 
   ###############################################
-  # QBITTORRENT - now routed through Gluetun
+  # QBITTORRENT - direct network (excluded from Gluetun)
   ###############################################
   qbittorrent:
     <<: *common-keys
